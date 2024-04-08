@@ -23,6 +23,8 @@
   .h1{
     font-size: 3em;
     --bg-size: 600%;
+    text-align: center;
+    margin-top: 0 auto;
     --color-one: hsl(212, 100%, 50%);
     --color-two: hsl(221, 100%, 31%);
     background: linear-gradient(

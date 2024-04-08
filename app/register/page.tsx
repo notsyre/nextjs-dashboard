@@ -1,44 +1,144 @@
 'use client';
 
+import * as React from 'react';
 import styles from '@/app/ui/home.module.css';
-import { useForm } from 'react-hook-form';
+import { Field, Formik, FormikHelpers, useFormik, Form } from 'formik';
+import * as Yup from 'yup';
+import { useState } from 'react';
 
-export default function RegisterPage() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm();
-
-  console.log(errors);
-
-  const onSubmit = handleSubmit((data) => {
-    console.log(data);
+const Home: React.FC = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    date: '',
+    lastName: '',
+    cedula: '',
+    expedicion: '',
+    destinacion: '',
+    direccion: '',
+    cesantias: '',
+    valor: 0,
+    empresacesantias: 0,
+    documentos: '',
   });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prevState) => ({
+      ...prevState,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    // Aquí puedes llamar a una función para generar el PDF con formData
+    generatePDF(formData);
+    // Por ejemplo:
+  };
+
+  // Función para generar el PDF
+const generatePDF = async (data: any) => {
+  // Librería pdf-lib para generar el PDF
+  const { PDFDocument, rgb } = require('pdf-lib');
+  
+  // Crear un nuevo documento PDF
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([600, 800]); // Tamaño de la página
+  const { width, height } = page.getSize();
+
+  // Texto a mostrar
+  const nameBoldText = `Informamos a ustedes que ${data.name} ${data.lastName} identificado(a) con la cédula de ciudadanía No. ${data.cedula} de ${data.expedicion} presentó la solicitud para retiro parcial de cesantías por $${data.valor} acreditando el cumplimiento de los requisitos.`;
+
+  // Tamaño de fuente y márgenes inicial
+  let fontSize = 15;
+  let margin = 50;
+
+  // Dividir el texto en líneas más cortas
+  let lines = splitTextIntoLines( nameBoldText, width - 2 * margin, fontSize);
+
+  // Reducir el tamaño de fuente si el texto no cabe en la página
+  while (lines.length * fontSize * 1.2 > height - 2 * margin) {
+      fontSize -= 1;
+      // Volver a dividir el texto en líneas más cortas con el nuevo tamaño de fuente
+      lines = splitTextIntoLines( nameBoldText, width - 2 * margin, fontSize);
+  }
+
+  // Agregar las líneas de texto al PDF con el tamaño de fuente y los márgenes ajustados
+  let textY = height - margin;
+  for (const line of lines) {
+      page.drawText(line, {
+          x: margin, // Margen izquierdo
+          y: textY - fontSize, // Margen inferior
+          size: fontSize, // Tamaño de fuente ajustado
+          color: rgb(0, 0, 0), // Color del texto
+      });
+      textY -= fontSize * 1.2; // Espacio entre líneas
+  }
+
+  // Guardar el PDF y obtener la URL
+  const pdfBytes = await pdfDoc.save();
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+
+  // Abrir el PDF en una nueva pestaña del navegador
+  window.open(url);
+};
+
+// Función para dividir el texto en líneas más cortas
+const splitTextIntoLines = (text: string, maxWidth: number, fontSize: number) => {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+      const lineWithWord = currentLine ? currentLine + ' ' + word : word;
+      const lineWidth = getTextWidth(lineWithWord, fontSize);
+      if (lineWidth <= maxWidth) {
+          // Si la línea con la nueva palabra cabe dentro del ancho máximo, agregamos la palabra a la línea actual
+          currentLine = lineWithWord;
+      } else {
+          // Si no cabe, agregamos la línea actual al arreglo de líneas y comenzamos una nueva línea con la palabra actual
+          lines.push(currentLine);
+          currentLine = word;
+      }
+  }
+
+  // Agregamos la última línea al arreglo de líneas
+  lines.push(currentLine);
+  return lines;
+};
+
+// Función para obtener el ancho de un texto en píxeles
+const getTextWidth = (text: string, fontSize: number): number => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return 0; // Si no se puede obtener el contexto de canvas, devolver 0
+
+  ctx.font = `${fontSize}px Arial`;
+  return ctx.measureText(text).width;
+};
 
   return (
     <form
-      className=" min-h-screen  items-center justify-center bg-gradient-to-b from-black to-slate-800 font-medium flex flex-col gap-10"
-      onSubmit={onSubmit}
+      className=" flex  min-h-screen flex-col items-center justify-center gap-10 bg-gradient-to-b from-black to-slate-800 font-medium"
+      onSubmit={handleSubmit}
     >
       <h1 className={styles.h1}>RETIRO DE CESANTÍAS</h1>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-2 gap-6 sm:grid-cols-2">
+        <div className="flex flex-col  gap-2">
           <label htmlFor="date" className="text-white">
             Fecha
           </label>
           <input
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
             className="rounded-md ring ring-blue-800"
             type="date"
             id="date"
-            {...register('date', { required: true })}
           />
-          {errors.date && (
-            <span className=" text-sm font-semibold text-red-500 ">
-              Fecha es requerido
-            </span>
-          )}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -47,19 +147,13 @@ export default function RegisterPage() {
           </label>
           <input
             className="rounded-md ring ring-blue-800 "
+            id="name"
             type="text"
-            {...register('name', {
-              required: true,
-              minLength: 4,
-              maxLength: 20,
-            })}
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
           />
-
-          {errors.name && (
-            <span className=" text-sm font-semibold text-red-500 ">
-              Nombre es requerido
-            </span>
-          )}
+          di
         </div>
 
         <div className="flex flex-col gap-2">
@@ -70,17 +164,10 @@ export default function RegisterPage() {
             className="rounded-md ring ring-blue-800"
             type="text"
             id="lastName"
-            {...register('lastname', {
-              required: true,
-              minLength: 4,
-              maxLength: 20,
-            })}
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleChange}
           />
-          {errors.lastname && (
-            <span className=" text-sm font-semibold text-red-500 ">
-              Apellido es requerido
-            </span>
-          )}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -91,17 +178,10 @@ export default function RegisterPage() {
             className="rounded-md ring ring-blue-800"
             type="number"
             id="cedula"
-            {...register('cedula', {
-              required: true,
-              minLength: 5,
-              maxLength: 13,
-            })}
+            name="cedula"
+            value={formData.cedula}
+            onChange={handleChange}
           />
-          {errors.cedula && (
-            <span className=" text-sm font-semibold text-red-500 ">
-              Tu cédula es requerida
-            </span>
-          )}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -112,43 +192,27 @@ export default function RegisterPage() {
             className="rounded-md ring ring-blue-800"
             type="text"
             id="expedicion"
-            {...register('expedicion', {
-              required: true,
-              minLength: 4,
-              maxLength: 15,
-            })}
+            name="expedicion"
+            value={formData.expedicion}
+            onChange={handleChange}
           />
-          {errors.expedicion && (
-            <span className=" text-sm font-semibold text-red-500 ">
-              Expedición es requerida
-            </span>
-          )}
         </div>
 
         <div className="flex flex-col gap-2">
           <label htmlFor="destinacion" className="text-white">
             Destinadas para
           </label>
-          <select
-            className="rounded-md ring ring-blue-800"
-            id="destinacion"
-            {...register('destinacion', { required: true })}
-          >
-            {errors.destinacion && (
-              <span className=" text-sm font-semibold text-red-500  ">
-                La destinación es requerida
-              </span>
-            )}
-            <option value="Vivienda">Compra de vivienda/Lote</option>
-            <option value="Mejoras">Mejoras de vivienda</option>
-            <option value="Hipotecario">
+          <select className="rounded-md ring ring-blue-800" id="destinacion">
+            <option value="vivienda">Compra de vivienda/Lote</option>
+            <option value="mejoras">Mejoras de vivienda</option>
+            <option value="hipotecario">
               Liberación de gravamen hipotecario
             </option>
-            <option value="Prestamo">
+            <option value="prestamo">
               Abono préstamo de Vivienda con la Compañía
             </option>
-            <option value="Predial">Pago de impuesto predial</option>
-            <option value="Educacion">Educación</option>
+            <option value="predial">Pago de impuesto predial</option>
+            <option value="educacion">Educación</option>
           </select>
         </div>
 
@@ -160,17 +224,10 @@ export default function RegisterPage() {
             className="rounded-md ring ring-blue-800 "
             type="text"
             id="direccion"
-            {...register('direccion', {
-              required: true,
-              minLength: 5,
-              maxLength: 15,
-            })}
+            name="direccion"
+            value={formData.direccion}
+            onChange={handleChange}
           />
-          {errors.direccion && (
-            <span className=" text-sm font-semibold text-red-500 ">
-              Dirección es requerida
-            </span>
-          )}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -178,10 +235,12 @@ export default function RegisterPage() {
             Fondo de Cesantías
           </label>
           <input
+            name="cesantias"
+            value={formData.cesantias}
+            onChange={handleChange}
             className="rounded-md ring ring-blue-800"
             type="text"
             id="cesantias"
-            {...register('cesantias', { minLength: 5, maxLength: 20 })}
           />
         </div>
 
@@ -190,10 +249,12 @@ export default function RegisterPage() {
             Valor a solicitar
           </label>
           <input
+            name="valor"
+            value={formData.valor}
+            onChange={handleChange}
             className="rounded-md ring ring-blue-800"
             type="number"
             id="valor"
-            {...register('valor')}
           />
         </div>
 
@@ -202,10 +263,12 @@ export default function RegisterPage() {
             Cesantías empresa
           </label>
           <input
+            name="empresacesantias"
+            value={formData.empresacesantias}
+            onChange={handleChange}
             className="rounded-md ring ring-blue-800"
             type="number"
             id="empresacesantias"
-            {...register('empresacesantias')}
           />
         </div>
 
@@ -214,16 +277,13 @@ export default function RegisterPage() {
             Documentos exigidos por ley
           </label>
           <input
+            name="documentos"
+            value={formData.documentos}
+            onChange={handleChange}
             className="rounded-md ring ring-blue-800"
             type="text"
             id="documentos"
-            {...register('documentos', { required: true })}
           />
-          {errors.documentos && (
-            <span className=" text-sm font-semibold text-red-500 ">
-              Los documentos son requeridos
-            </span>
-          )}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -234,13 +294,9 @@ export default function RegisterPage() {
             className="rounded-md "
             type="file"
             id="firma"
-            {...register('firma', { required: true })}
+            name="firma"
+            // onChange={.handleChange}
           />
-          {errors.firma && (
-            <span className=" text-sm font-semibold text-red-500 ">
-              Tu firma es requerida
-            </span>
-          )}
         </div>
       </div>
       <button type="submit" className={styles.btn}>
@@ -248,4 +304,6 @@ export default function RegisterPage() {
       </button>
     </form>
   );
-}
+};
+
+export default Home;
